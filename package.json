@@ -1,0 +1,33 @@
+{
+  "name": "live-interview-analyzer",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter backend --filter frontend dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "test:pg": "pnpm --filter backend test:pg",
+    "e2e": "pnpm --filter e2e test",
+    "models": "pnpm --filter frontend models",
+    "build:web": "pnpm --filter frontend build",
+    "serve": "pnpm --filter backend start",
+    "serve:https": "pnpm --filter backend start:https",
+    "lan": "node scripts/lan.mjs",
+    "lan:http": "node scripts/lan.mjs --http",
+    "lan:fast": "node scripts/lan.mjs --skip-build",
+    "lan:https": "node scripts/lan.mjs",
+    "lan:http:fast": "node scripts/lan.mjs --http --skip-build",
+    "lan:https:fast": "node scripts/lan.mjs --skip-build"
+  },
+  "pnpm": {
+    "ignoredBuiltDependencies": [
+      "protobufjs",
+      "sharp"
+    ]
+  },
+  "packageManager": "pnpm@11.10.0",
+  "devDependencies": {
+    "@types/qrcode-terminal": "^0.12.2",
+    "qrcode-terminal": "^0.12.0"
+  }
+}

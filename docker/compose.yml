@@ -1,0 +1,71 @@
+## Prod-like stack (CD5): Postgres + MinIO + API + web.
+## Local dev does NOT need this — SQLite + local disk are the defaults.
+## Usage: docker compose -f docker/compose.yml up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: interview
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - miniodata:/data
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/api.Dockerfile
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/interview
+      STORAGE_DRIVER: s3
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: recordings
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      JWT_SECRET: ${JWT_SECRET:-change-me}
+      LLM_PROVIDER: ${LLM_PROVIDER:-none}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      RECORDING_RETENTION_DAYS: 30
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - '3001:3001'
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/web.Dockerfile
+    depends_on:
+      - api
+    ports:
+      - '8080:80'
+
+volumes:
+  pgdata:
+  miniodata:

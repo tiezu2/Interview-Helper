@@ -1,0 +1,12 @@
+packages:
+  - backend
+  - frontend
+  - e2e
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  esbuild: true
+  prisma: true
+  # 这两个是 @xenova/transformers 的 node-only 依赖，浏览器构建用不到，明确不构建
+  protobufjs: false
+  sharp: true

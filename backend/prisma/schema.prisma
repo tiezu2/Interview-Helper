@@ -1,0 +1,134 @@
+// Portable schema: SQLite in dev, Postgres in prod (CD5).
+// JSON payloads are stored as String and (de)serialized in the service
+// layer so the schema works on both connectors.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  studentNo    String?   @unique // 学号（学生）/工号（老师），登录账号
+  email        String?   @unique // 可选补充信息
+  passwordHash String
+  role         String // teacher | student | admin（历史值：assessor | candidate）
+  name         String
+  createdAt    DateTime  @default(now())
+  invites      Invite[]  @relation("AssessorInvites")
+  sessions     Session[] @relation("CandidateSessions")
+  assessing    Session[] @relation("AssessorSessions")
+  drills       DrillRun[]
+  teaching     Classroom[]       @relation("TeacherClasses")
+  memberships  ClassMembership[] @relation("StudentClasses")
+}
+
+// 班级：老师创建，学生凭加入码进班；老师在后台按班级查看学生分数。
+model Classroom {
+  id          String            @id @default(cuid())
+  name        String
+  joinCode    String            @unique
+  teacherId   String
+  teacher     User              @relation("TeacherClasses", fields: [teacherId], references: [id], onDelete: Cascade)
+  memberships ClassMembership[]
+  createdAt   DateTime          @default(now())
+}
+
+model ClassMembership {
+  id          String    @id @default(cuid())
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  studentId   String
+  student     User      @relation("StudentClasses", fields: [studentId], references: [id], onDelete: Cascade)
+  joinedAt    DateTime  @default(now())
+
+  @@unique([classroomId, studentId])
+  @@index([studentId])
+}
+
+// 训练模块：每一项分项训练（眼神/语速/口头禅/姿态/自我介绍）的一次完成记录。
+// metrics 与其余 JSON 字段一致，存 String blob，SQL 内部不查询。
+model DrillRun {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind        String // gaze | pace | filler | posture | intro
+  score       Int // 0-100
+  durationSec Int
+  metrics     String // JSON blob（该次训练的明细指标）
+  createdAt   DateTime @default(now())
+
+  @@index([userId, kind, createdAt])
+}
+
+model Invite {
+  id         String    @id @default(cuid())
+  assessorId String
+  assessor   User      @relation("AssessorInvites", fields: [assessorId], references: [id])
+  code       String    @unique
+  email      String?
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+model Session {
+  id            String         @id @default(cuid())
+  candidateId   String
+  candidate     User           @relation("CandidateSessions", fields: [candidateId], references: [id])
+  assessorId    String?
+  assessor      User?          @relation("AssessorSessions", fields: [assessorId], references: [id])
+  roleField     String
+  status        String         @default("created") // created | active | ended | reported
+  consentAt     DateTime?
+  startedAt     DateTime?
+  endedAt       DateTime?
+  createdAt     DateTime       @default(now())
+  questions     Question[]
+  metricWindows MetricWindow[]
+  report        Report?
+  recording     Recording?
+}
+
+model Question {
+  id        String    @id @default(cuid())
+  sessionId String
+  session   Session   @relation(fields: [sessionId], references: [id])
+  order     Int
+  text      String
+  askedAt   DateTime?
+}
+
+model MetricWindow {
+  id        String   @id @default(cuid())
+  sessionId String
+  session   Session  @relation(fields: [sessionId], references: [id])
+  ts        DateTime
+  signals   String // JSON blob, one summary per second; never queried inside SQL
+
+  @@index([sessionId, ts])
+}
+
+model Report {
+  id         String   @id @default(cuid())
+  sessionId  String   @unique
+  session    Session  @relation(fields: [sessionId], references: [id])
+  scores     String // JSON blob
+  feedbackMd String
+  transcript String
+  createdAt  DateTime @default(now())
+}
+
+model Recording {
+  id         String    @id @default(cuid())
+  sessionId  String    @unique
+  session    Session   @relation(fields: [sessionId], references: [id])
+  objectKey  String
+  size       Int       @default(0)
+  expiresAt  DateTime
+  uploadedAt DateTime?
+}

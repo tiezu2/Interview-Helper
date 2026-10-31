@@ -1,0 +1,31 @@
+node_modules/
+dist/
+build/
+*.log
+.env
+.env.*
+!.env.example
+*.db
+*.db-journal
+data/
+backend/data/
+frontend/public/models/
+test-results/
+playwright-report/
+coverage/
+.DS_Store
+
+# ---- 本地运行时产物（不应入库） ----
+backend/dev.db
+backend/dev.db-journal
+backend/prisma/*.db
+backend/prisma/*.db-journal
+backend/certs/
+backend/data/
+frontend/tsconfig.tsbuildinfo
+*.tsbuildinfo
+# 由 fetch-models.mjs 从 node_modules 复制，不入库
+frontend/src/vendor/
+# 内网穿透等本地工具（体积大、按需下载）
+tools/
+.vscode/
