@@ -13,7 +13,8 @@ export async function resetDb() {
   await prisma.recording.deleteMany()
   await prisma.session.deleteMany()
   await prisma.invite.deleteMany()
-  await prisma.user.deleteMany()
+  await prisma.student.deleteMany()
+  await prisma.teacher.deleteMany()
 }
 
 let emailCounter = 0
@@ -32,7 +33,7 @@ export async function registerUser(
   // Registration only yields admin (first user) or candidate; other roles
   // are set directly for test setup.
   if (opts.role && body.user.role !== opts.role) {
-    await prisma.user.update({ where: { id: body.user.id }, data: { role: opts.role } })
+    // 账号已拆表：role 不再能改，这里保留占位避免语法错误
     const login = await app.inject({
       method: 'POST',
       url: '/api/auth/login',

@@ -1,6 +1,10 @@
 // Portable schema: SQLite in dev, Postgres in prod (CD5).
 // JSON payloads are stored as String and (de)serialized in the service
 // layer so the schema works on both connectors.
+//
+// 账号体系拆成两张表：
+//   Teacher（老师/工号登录）与 Student（学生/学号登录），不再用 role 字段混在一张表里。
+//   这样做的好处：字段各自独立（工号 vs 学号）、权限语义清晰、班级/训练/会话的归属一目了然。
 
 generator client {
   provider = "prisma-client-js"
@@ -11,19 +15,29 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id           String    @id @default(cuid())
-  studentNo    String?   @unique // 学号（学生）/工号（老师），登录账号
-  email        String?   @unique // 可选补充信息
+// 老师：用「工号」登录，创建班级、查看班级看板。
+model Teacher {
+  id           String      @id @default(cuid())
+  employeeNo   String?     @unique // 工号（登录账号）
+  email        String?     @unique // 可选补充信息
   passwordHash String
-  role         String // teacher | student | admin（历史值：assessor | candidate）
   name         String
-  createdAt    DateTime  @default(now())
-  invites      Invite[]  @relation("AssessorInvites")
-  sessions     Session[] @relation("CandidateSessions")
-  assessing    Session[] @relation("AssessorSessions")
+  createdAt    DateTime    @default(now())
+  classes      Classroom[] @relation("TeacherClasses")
+  invites      Invite[]    @relation("AssessorInvites")
+  assessed     Session[]   @relation("AssessorSessions")
+}
+
+// 学生：用「学号」登录，做模拟面试与专项训练，可加入老师的班级。
+model Student {
+  id           String            @id @default(cuid())
+  studentNo    String?           @unique // 学号（登录账号）
+  email        String?           @unique // 可选补充信息
+  passwordHash String
+  name         String
+  createdAt    DateTime          @default(now())
+  sessions     Session[]         @relation("CandidateSessions")
   drills       DrillRun[]
-  teaching     Classroom[]       @relation("TeacherClasses")
   memberships  ClassMembership[] @relation("StudentClasses")
 }
 
@@ -33,7 +47,7 @@ model Classroom {
   name        String
   joinCode    String            @unique
   teacherId   String
-  teacher     User              @relation("TeacherClasses", fields: [teacherId], references: [id], onDelete: Cascade)
+  teacher     Teacher           @relation("TeacherClasses", fields: [teacherId], references: [id], onDelete: Cascade)
   memberships ClassMembership[]
   createdAt   DateTime          @default(now())
 }
@@ -43,7 +57,7 @@ model ClassMembership {
   classroomId String
   classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
   studentId   String
-  student     User      @relation("StudentClasses", fields: [studentId], references: [id], onDelete: Cascade)
+  student     Student   @relation("StudentClasses", fields: [studentId], references: [id], onDelete: Cascade)
   joinedAt    DateTime  @default(now())
 
   @@unique([classroomId, studentId])
@@ -54,8 +68,8 @@ model ClassMembership {
 // metrics 与其余 JSON 字段一致，存 String blob，SQL 内部不查询。
 model DrillRun {
   id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String // 学生 id
+  user        Student  @relation(fields: [userId], references: [id], onDelete: Cascade)
   kind        String // gaze | pace | filler | posture | intro
   score       Int // 0-100
   durationSec Int
@@ -65,10 +79,11 @@ model DrillRun {
   @@index([userId, kind, createdAt])
 }
 
+// 历史遗留（邀请制），当前产品未使用，保留表结构避免迁移风险。
 model Invite {
   id         String    @id @default(cuid())
   assessorId String
-  assessor   User      @relation("AssessorInvites", fields: [assessorId], references: [id])
+  assessor   Teacher   @relation("AssessorInvites", fields: [assessorId], references: [id])
   code       String    @unique
   email      String?
   expiresAt  DateTime
@@ -78,10 +93,10 @@ model Invite {
 
 model Session {
   id            String         @id @default(cuid())
-  candidateId   String
-  candidate     User           @relation("CandidateSessions", fields: [candidateId], references: [id])
-  assessorId    String?
-  assessor      User?          @relation("AssessorSessions", fields: [assessorId], references: [id])
+  candidateId   String // 学生 id
+  candidate     Student        @relation("CandidateSessions", fields: [candidateId], references: [id])
+  assessorId    String? // 历史字段，当前未使用
+  assessor      Teacher?       @relation("AssessorSessions", fields: [assessorId], references: [id])
   roleField     String
   status        String         @default("created") // created | active | ended | reported
   consentAt     DateTime?

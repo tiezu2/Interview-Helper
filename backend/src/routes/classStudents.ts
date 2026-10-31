@@ -61,7 +61,7 @@ export default async function classStudentRoutes(app: FastifyInstance) {
     })
     if (!membership) return reply.code(404).send({ error: '该学生不在这个班里' })
 
-    const student = await prisma.user.findUnique({
+    const student = await prisma.student.findUnique({
       where: { id: sid },
       select: { id: true, name: true, studentNo: true },
     })
@@ -228,11 +228,11 @@ export default async function classStudentRoutes(app: FastifyInstance) {
       }
 
       // 已有账号？
-      let user = await prisma.user.findFirst({ where: { studentNo } })
+      let user = await prisma.student.findFirst({ where: { studentNo } })
       let isNew = false
       if (!user) {
-        user = await prisma.user.create({
-          data: { studentNo, name, passwordHash, role: 'student' },
+        user = await prisma.student.create({
+          data: { studentNo, name, passwordHash },
         })
         isNew = true
       }

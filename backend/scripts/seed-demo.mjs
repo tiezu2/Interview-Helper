@@ -198,15 +198,16 @@ async function main() {
 
   if (clean) {
     await prisma.classroom.deleteMany({ where: { joinCode: JOIN_CODE } })
-    await prisma.user.deleteMany({ where: { studentNo: { in: demoNos } } })
+    await prisma.student.deleteMany({ where: { studentNo: { in: demoNos } } })
+    await prisma.teacher.deleteMany({ where: { employeeNo: { in: demoNos } } })
     console.log('已清理旧的演示数据')
   }
 
   // 账号（upsert，可重复执行）
-  const teacher = await prisma.user.upsert({
-    where: { studentNo: 'T9001' },
-    update: { name: '王老师', role: 'teacher' },
-    create: { studentNo: 'T9001', name: '王老师', role: 'teacher', passwordHash: hash },
+  const teacher = await prisma.teacher.upsert({
+    where: { employeeNo: 'T9001' },
+    update: { name: '王老师' },
+    create: { employeeNo: 'T9001', name: '王老师', passwordHash: hash },
   })
 
   const students = []
@@ -215,10 +216,10 @@ async function main() {
     { no: 'S2025012', name: '李婷' },
     { no: 'S2025013', name: '王浩' },
   ]) {
-    const u = await prisma.user.upsert({
+    const u = await prisma.student.upsert({
       where: { studentNo: s.no },
-      update: { name: s.name, role: 'student' },
-      create: { studentNo: s.no, name: s.name, role: 'student', passwordHash: hash },
+      update: { name: s.name },
+      create: { studentNo: s.no, name: s.name, passwordHash: hash },
     })
     students.push(u)
   }
@@ -275,12 +276,11 @@ async function main() {
   // 王浩：不做面试，只做 1 次训练 → 班级看板会出现「未练习预警」
   await createDrills(students[2].id, 52, 1)
 
-  const summary = await prisma.user.findMany({
+  const summary = await prisma.student.findMany({
     where: { studentNo: { in: demoNos } },
     select: {
       studentNo: true,
       name: true,
-      role: true,
       _count: { select: { sessions: true, drills: true } },
     },
     orderBy: { studentNo: 'asc' },
@@ -294,7 +294,7 @@ async function main() {
   console.log(`班级：${classroom.name}    加入码：${JOIN_CODE}`)
   console.log(`老师账号：T9001    密码：${PASSWORD}`)
   console.log('\n学生账号（密码同上）：')
-  for (const u of summary.filter((x) => x.role === 'student')) {
+  for (const u of summary) {
     console.log(`  ${u.studentNo}  ${u.name}   面试 ${u._count.sessions} 次 / 训练 ${u._count.drills} 次`)
   }
   console.log(`\n报告总数：${reportCount}`)
