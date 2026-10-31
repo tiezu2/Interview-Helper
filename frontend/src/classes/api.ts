@@ -81,6 +81,15 @@ export const DIM_LABEL: Record<string, string> = {
   speech: '语言表达',
 }
 
+// 表格里用的短标签（列很多时避免撑爆宽度）
+export const DIM_SHORT: Record<string, string> = {
+  expression: '表情',
+  eyeContact: '眼神',
+  stillness: '姿态',
+  voice: '声音',
+  speech: '表达',
+}
+
 export interface ClassmateRow {
   id: string
   name: string

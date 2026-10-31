@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { fetchStudentDetail, type StudentDetail } from './api.js'
+import { fetchStudentDetail, type StudentDetail, DIM_SHORT } from './api.js'
 
 function scoreColor(v: number | null) {
   if (v === null) return 'var(--muted)'
@@ -16,6 +16,8 @@ const DIM_LABEL: Record<string, string> = {
   voice: '声音表现',
   speech: '语言表达',
 }
+
+// 表格列多，用短标签；上面的完整标签留给图表/详情文案
 
 function Sparkline({ trend, width = 220, height = 44 }: { trend: Array<{ score: number | null }>; width?: number; height?: number }) {
   const pts = trend.filter((t): t is { score: number } => typeof t.score === 'number')
@@ -113,14 +115,14 @@ export default function StudentDetailPage() {
               <p className="muted" style={{ fontSize: 13, margin: 0 }}>还没有完成的模拟面试。</p>
             ) : (
               <div className="table-wrap">
-                <table>
+                <table className="compact">
                   <thead>
                     <tr>
                       <th>时间</th>
                       <th style={{ textAlign: 'left' }}>岗位</th>
                       <th>综合</th>
-                      {Object.keys(DIM_LABEL).map((k) => (
-                        <th key={k}>{DIM_LABEL[k]}</th>
+                      {Object.keys(DIM_SHORT).map((k) => (
+                        <th key={k}>{DIM_SHORT[k]}</th>
                       ))}
                       <th></th>
                     </tr>
@@ -131,7 +133,7 @@ export default function StudentDetailPage() {
                         <td className="muted" style={{ fontSize: 12 }}>{new Date(r.createdAt).toLocaleString('zh-CN')}</td>
                         <td style={{ textAlign: 'left' }}>{r.roleField}</td>
                         <td style={{ fontWeight: 700, color: scoreColor(r.overall) }}>{r.overall ?? '—'}</td>
-                        {Object.keys(DIM_LABEL).map((k) => (
+                        {Object.keys(DIM_SHORT).map((k) => (
                           <td key={k} style={{ color: scoreColor((r as any)[k] ?? null) }}>
                             {(r as any)[k] ?? '—'}
                           </td>

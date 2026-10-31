@@ -2588,3 +2588,34 @@ body {
   }
 }
 
+/* ---------- 表格：内容不折行，窄容器改为横向滚动 ----------
+   之前「岗位」列在桌面端被挤成每行一个字（换行规则只写在窄屏媒体查询里）。 */
+.table-wrap table {
+  min-width: max-content;
+}
+
+.table-wrap th,
+.table-wrap td {
+  white-space: nowrap;
+}
+
+.table-wrap td {
+  vertical-align: middle;
+}
+
+/* 岗位/时间这类文字列给一点最小宽度，读起来不挤 */
+.table-wrap td:first-child {
+  min-width: 132px;
+}
+
+/* 列数多的表（学生详情 / 班级看板）用紧凑间距，减少横向滚动 */
+.table-wrap table.compact th,
+.table-wrap table.compact td {
+  padding: 10px 6px;
+  font-size: 13px;
+}
+
+.table-wrap table.compact th {
+  font-size: 12px;
+  color: var(--muted);
+}

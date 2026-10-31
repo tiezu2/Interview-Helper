@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   DIM_LABEL,
+  DIM_SHORT,
   getClassDetail,
   importStudents,
   removeStudent,
@@ -301,14 +302,14 @@ export function BoardContent({ classId, embedded = false }: { classId: string; e
           ) : (
             <div className="card" style={{ padding: '8px 12px' }}>
               <div className="table-wrap">
-                <table>
+                <table className="compact">
                   <thead>
                     <tr>
                       <th style={{ textAlign: 'left' }}>学员</th>
                       <th>状态</th>
                       <th>最近综合</th>
                       {DIMS.map((k) => (
-                        <th key={k}>{DIM_LABEL[k]}</th>
+                        <th key={k}>{DIM_SHORT[k]}</th>
                       ))}
                       <th>均分</th>
                       <th>最好</th>
