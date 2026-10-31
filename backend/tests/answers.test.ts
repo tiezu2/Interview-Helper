@@ -48,11 +48,12 @@ describe('answer segmentation (F1)', () => {
 })
 
 describe('answer heuristics (F2)', () => {
+  // 中文 STAR 语料：当时（情景）→ 我先/决定（行动）→ 最后/结果（结果）
   const starAnswer =
-    'When I was at my previous company there was a time we lost a key client. ' +
-    'So I decided to rebuild the relationship and I organized weekly check-ins with their team. ' +
-    'As a result we won the contract back and it improved our retention overall. ' +
-    Array.from({ length: 20 }, () => 'and we kept improving the process every quarter').join(' ')
+    '当时我在上一家公司负责一个客户项目，那个客户一度说要终止合作。' +
+    '我先梳理了他们反映的问题清单，然后决定每周和他们开一次对齐会，把进度同步给对接人。' +
+    '最后我们重新签了合同，客户续约率从百分之六十提升到百分之八十五。' +
+    Array.from({ length: 20 }, () => '之后我又把这个流程固化下来，团队每个人都能照着做。').join('')
 
   it('detects STAR components in a structured answer', () => {
     const seg = { order: 1, transcript: starAnswer, words: 120, fillers: 2, durationSec: 60, avgNervousness: 0.2, dominantMood: null }
@@ -61,17 +62,16 @@ describe('answer heuristics (F2)', () => {
     expect(h.hasAction).toBe(true)
     expect(h.hasResult).toBe(true)
     expect(h.structureScore).toBe(100)
-    expect(h.lengthAssessment).toBe('good length')
+    expect(['时长合适', '偏长']).toContain(h.lengthAssessment)
   })
 
   it('flags a short unstructured answer', () => {
-    const seg = { order: 1, transcript: 'I am a hard worker and very motivated', words: 8, fillers: 0, durationSec: 5, avgNervousness: 0.2, dominantMood: null }
+    const seg = { order: 1, transcript: '我工作很努力也很积极', words: 9, fillers: 0, durationSec: 5, avgNervousness: 0.2, dominantMood: null }
     const h = analyzeAnswerHeuristics(seg)
     expect(h.structureScore).toBe(0)
-    expect(h.lengthAssessment).toBe('too short')
+    expect(h.lengthAssessment).toBe('偏短')
     const coaching = heuristicAnswerCoaching(seg, h)
-    expect(coaching).toContain('STAR')
-    expect(coaching).toContain('short')
+    expect(coaching).toContain('具体例子')
   })
 
   it('heuristic coaching never contains verdict language', () => {

@@ -1,113 +1,160 @@
-# Live Interview Analyzer
+# 面试镜 · 学生表达训练平台
 
-A browser-based platform that watches and listens live through camera and mic, and
-coaches a person on how they actually come across in an interview.
+面向**专升本 / 高职学生**的模拟面试练习与班级管理平台：学生在浏览器里完成一次模拟面试，系统实时分析**眼神、语速、口头禅、姿态、表情**，结束后给出可执行的训练建议；老师建班后可以按班级查看每位学生的分数、走势与薄弱项。
 
-**Training, not judging.** The platform reports observable behavioral signals and
-coaching feedback. It never outputs hire/reject, truthful/lying, or any automated
-verdict about a person.
+> **这是训练工具，不是评判工具。** 系统只输出可观察的表达信号与改进建议，**不会**给出"录用 / 不录用""诚实 / 撒谎"之类的任何判断。
 
-> **Why this exists, what it does, and the payoff:** see [SHOWCASE.md](SHOWCASE.md).
+本项目基于 MIT 协议的开源项目 [HamzaTasneem/live-interview-analyzer](https://github.com/HamzaTasneem/live-interview-analyzer) 二次开发，面向"第二届「智创未来」AI+X 跨领域创新大赛 · 赛道二"重做产品形态、账号体系、班级看板与中文能力。上游 LICENSE 保留在仓库根目录。
 
-## What it does
+---
 
-- AI-conducted mock interview: pick a job role, get 5 role-relevant questions
-- Live analysis of 5 signals, entirely **in your browser** (nothing streams to a server):
-  1. Facial expression + tension composite
-  2. Eye contact, gaze, blink rate
-  3. Movement & fidgeting
-  4. Voice tone (pace, pitch variation, volume, pauses)
-  5. Speech content (live transcript, filler words)
-- Real-time meters + supportive nudges (max 1 per 20s)
-- Post-session report: per-signal scores, timeline, transcript, LLM coaching feedback
-- Roles: admin / assessor / candidate — assessors invite candidates and see their
-  reports after the session
-- Sessions recorded for internal AI-quality review only (admin-only access,
-  auto-deleted after 30 days)
+## 功能一览
 
-## Architecture
+### 学生端
 
-Edge-first: the live loop never leaves the browser (MediaPipe FaceLandmarker + Web
-Audio + Web Speech). The server receives only 1-second metric summaries over
-WebSocket, orchestrates auth/sessions, generates questions and coaching via
-LangChain.js (with deterministic template fallback), and stores reports.
-
-| Layer | Tech |
+| 模块 | 说明 |
 |---|---|
-| Frontend | React + Vite + TypeScript, @mediapipe/tasks-vision |
-| Backend | Node.js + Fastify + TypeScript, LangChain.js, Prisma |
-| DB | SQLite (dev) / Postgres (prod) — portable Prisma schema |
-| Storage | Local disk (dev) / MinIO-S3 (prod) behind a driver interface |
-| Auth | JWT with role claims |
+| 模拟面试 | 中文题库、逐题作答、追问、实时指标（表情 / 眼神 / 语速 / 口头禅 / 姿态 / 情绪） |
+| 面试报告 | 五维分数 + 逐题 STAR 结构分析 + 时间轴 + 文字稿 + 改进建议，可**导出成绩卡 PNG** |
+| 训练中心 | 5 个专项训练：眼神锁定、语速控制、口头禅清除、姿态矫正、自我介绍；自动推荐最弱 3 项 |
+| 我的班级 | 输入 6 位加入码进班，查看自己的排名、班级均分与同学榜（只显示分数，看不到任何音视频） |
+| 我的进步 | 练习次数、连续天数、最好成绩、趋势曲线、全部练习记录 |
 
-## Quick start (dev — no Docker needed)
+### 老师端
+
+| 模块 | 说明 |
+|---|---|
+| 班级管理 | 工号登录、建班、生成加入码、**批量导入学生**（导入后给出每人随机初始密码清单，可下载 CSV） |
+| 班级看板 | 每位学生的最新综合分、五维分数、均分 / 最好 / 练习次数、**未练习预警**、五维班级均分、导出成绩单 CSV |
+| 学生详情 | 成绩概况与趋势、练习记录（可跳转报告）、训练明细、薄弱项建议、移除学生 |
+
+---
+
+## 技术亮点
+
+1. **就近推理，隐私优先**
+   人脸 / 姿态用 MediaPipe 在浏览器本地跑；语音识别用**自托管的 Whisper**（41MB，模型与 ONNX Runtime wasm 全部本地，不访问 huggingface、不依赖 Google 服务）。服务器只接收每秒一次的**指标摘要**，**不上传任何音视频**。
+
+2. **语音识别跑在 Web Worker**
+   whisper 推理留在主线程会明显卡顿，因此移入 worker：界面保持流畅，文字延迟 2—4 秒。采样率自适应（Safari/Firefox 会忽略 16k 请求）+ 线性重采样。
+
+3. **诚实的评分**
+   没有采集到可识别语音时，「语言表达」维度**不出分**（显示"数据不足"），综合分按其余维度权重重新归一，而不是硬凑一个 50 分。
+
+4. **单端口部署 + 局域网 HTTPS**
+   后端用 `@fastify/static` 托管前端产物，一个端口同时提供页面与 API；可选 HTTPS（自动生成含本机局域网 IP 的自签证书，IP 变化自动重建），解决"其他设备访问时浏览器禁用摄像头"的问题。
+
+5. **账号拆成两张表**
+   `Teacher`（工号）与 `Student`（学号）分开建表，权限语义清晰；班级、会话、训练记录的外键各自指向对应表。
+
+---
+
+## 快速开始
 
 ```bash
 pnpm install
-cp .env.example backend/.env          # defaults work out of the box
-cd backend && npx prisma db push      # creates dev.db
-cd .. && pnpm dev                     # backend :3001 + frontend :5173
+
+cd backend
+cp .env.example .env          # 至少改掉 JWT_SECRET
+npx prisma db push            # 首次：建库（SQLite）
+cd ..
+
+pnpm --filter frontend models # 首次：下载 MediaPipe + Whisper 模型（约 80MB）
+pnpm dev                      # 前端 :5173，后端 :3001
 ```
 
-Open http://localhost:5173 — the **first registered account becomes admin**.
+打开 http://localhost:5173 。
 
-Camera analysis needs Chrome/Edge desktop or Android Chrome. Live transcription is
-unavailable on iOS Safari (report still works, minus the transcript).
-
-### LAN access (phone / another computer)
-
-Browsers only expose camera + mic on `https` (or `localhost`), so LAN use goes through
-the single-port HTTPS server that also hosts the built frontend:
+### 演示数据（一键）
 
 ```bash
-pnpm lan          # https://<LAN-IP>:8443 — camera/mic work on other devices
-pnpm lan:http     # http://<LAN-IP>:8080 — UI only, getUserMedia is blocked
+pnpm seed:demo          # 生成 1 老师 + 1 班 + 3 个不同状态的学生
+pnpm seed:demo:clean    # 先清掉演示账号再生成
 ```
 
-`scripts/lan.mjs` builds the frontend, starts the backend on `0.0.0.0`, waits for
-`/api/health`, then prints the reachable URLs and a QR code. It ranks real adapters
-first, so VMware/Hyper-V/WSL/VPN addresses (unreachable from other devices) are not
-offered as the QR target.
+| 身份 | 账号 | 姓名 | 说明 |
+|---|---|---|---|
+| 老师 | `T9001` | 王老师 | 班级「计算机专升本一班」，加入码 `DEMO01` |
+| 学生 | `S2025011` | 张明 | 5 次面试（72→88 上升）+ 15 次训练 |
+| 学生 | `S2025012` | 李婷 | 3 次面试（60→68）+ 10 次训练 |
+| 学生 | `S2025013` | 王浩 | 0 次面试（触发「未练习」预警）+ 5 次训练 |
 
-- TLS: a self-signed cert is generated into `backend/certs` with every LAN IP in its
-  SAN and is regenerated when the IP changes. On the other device accept the warning
-  once (高级 → 继续前往).
-- Both devices must be on the same subnet; router AP isolation / guest Wi-Fi blocks it.
-- With the Windows firewall enabled, allow the port once:
-  `New-NetFirewallRule -DisplayName "面试镜 8443" -Direction Inbound -Protocol TCP -LocalPort 8443 -Action Allow`
+密码统一 `12345678`。老师登录入口 `/teacher/login`，学生入口 `/login`。
 
-### LLM questions & coaching (optional)
+---
 
-Template fallback works with no key. For LLM-generated content set in `backend/.env`:
-
-```
-LLM_PROVIDER=anthropic
-ANTHROPIC_API_KEY=sk-ant-...
-```
-
-## Tests
+## 局域网 / 其他设备访问
 
 ```bash
-pnpm test          # backend integration (SQLite) + frontend signal-math unit tests
-pnpm test:pg       # same backend suite against Postgres (needs docker compose postgres)
-pnpm e2e           # Playwright with Chromium fake camera/mic
+pnpm lan          # http://<本机IP>:8080（老师端看分数够用）
+pnpm lan:https    # https://<本机IP>:8443（学生要练面试必须用这个）
 ```
 
-## Prod-like run
+启动后终端会打印局域网地址与**二维码**。浏览器要求安全上下文才能开摄像头，所以非 localhost 访问**必须 https**（自签证书首次需点「高级 → 继续前往」）。详见 [局域网访问.md](./局域网访问.md)。
+
+---
+
+## 目录结构
+
+```
+backend/          Fastify + Prisma（SQLite / Postgres）
+  prisma/         schema 与本地库
+  src/routes/     auth / classes / classStudents / drills / sessions / reports / progress / metrics
+  src/services/   report（打分与报告）、llm（题库与模板兜底）
+  scripts/        seed-demo、迁移与诊断脚本
+  tests/          vitest：产品流程 + 报告启发式
+frontend/         React 18 + Vite + TypeScript
+  src/session/    面试实时页
+  src/training/   5 个专项训练
+  src/classes/    学生班级页、老师班级管理与看板、学生详情
+  src/report/     报告页、进步页、历史
+  src/analysis/   信号计算（眼神/表情/姿态/语音/填充词/ASR/媒体设备）
+  src/workers/    语音识别 worker
+scripts/          lan.mjs（局域网一键启动）
+```
+
+---
+
+## 测试
 
 ```bash
-docker compose -f docker/compose.yml up -d   # postgres + minio + api + web on :8080
+pnpm --filter backend test     # 后端：产品流程 + 报告启发式（17 个）
+pnpm --filter frontend test    # 前端：信号计算单测（60 个）
 ```
 
-## Repo layout
+后端测试覆盖：老师 / 学生注册登录、账号唯一性、学生越权建班、加入码进班、跨老师数据隔离、无语音时不出假分、学生读不到他人报告。
 
-```
-frontend/src/analysis/   signal math + MediaPipe/WebAudio wrappers (unit tested)
-frontend/src/session/    consent, live session, meters
-frontend/src/report/     report + history pages
-backend/src/routes/      auth, invites, sessions, metrics WS, reports, recordings, admin
-backend/src/services/    llm (LangChain + templates), report pipeline, storage drivers, retention
-e2e/                     Playwright specs (fake media)
-docker/                  prod-profile compose + Dockerfiles
-docs/signals.md          exact signal formulas and weights
-```
+---
+
+## 隐私与合规设计
+
+- **不上传音视频**：摄像头与麦克风数据只在浏览器内分析，服务器只收指标摘要
+- **等级与可见性**：学生只能看自己的报告；老师只能看**自己班级**学生的分数与逐题文字，看不到任何画面或录音
+- **同龄对比**：同学榜只显示分数与打码学号（如 `S20****11`），不暴露姓名以外的身份信息
+- **默认不外网**：默认只监听本机，需要局域网访问时用 `pnpm lan:https` 显式开启，用完即关
+
+---
+
+## 环境变量（backend/.env）
+
+| 变量 | 说明 |
+|---|---|
+| `DATABASE_URL` | 默认 `file:./dev.db`；生产可换 `postgresql://...` |
+| `JWT_SECRET` | 必改，生产请用随机长串 |
+| `PORT` | 默认 3001 |
+| `USE_HTTPS` / `HTTPS_CERT` / `HTTPS_KEY` | 局域网 HTTPS（不填证书则自动生成自签） |
+| `LLM_PROVIDER` / API Key | 可选；不配则使用内置中文题库与模板建议 |
+
+---
+
+## 已知限制
+
+- 语音识别用 `whisper-tiny`，中文精度够做字数 / 口头禅统计，个别词会识别错；首次加载需下载 41MB 模型（之后走浏览器缓存）
+- 人脸 / 姿态模型需要 WebAssembly SIMD：建议 Chrome 87+ / Edge 88+ / Firefox 78+ / Safari 15+
+- 非 https 且非 localhost 的页面无法调用摄像头麦克风（浏览器策略，非本项目限制）
+
+---
+
+## 许可证
+
+本项目沿用上游 MIT 协议，见 [LICENSE](./LICENSE)。上游作者信息已在 LICENSE 与源文件头保留；本仓库的改造（中文界面、班级体系、账号拆分、本地语音链路、部署脚本）同样以 MIT 协议开源。

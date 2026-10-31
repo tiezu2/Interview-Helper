@@ -74,7 +74,7 @@ export interface AnswerHeuristics {
   hasAction: boolean
   hasResult: boolean
   structureScore: number // 0-100
-  lengthAssessment: 'too short' | 'good length' | 'long'
+  lengthAssessment: '偏短' | '时长合适' | '偏长'
   fillerDensity: number // per 100 words
 }
 
@@ -87,7 +87,7 @@ export function analyzeAnswerHeuristics(seg: AnswerSegment): AnswerHeuristics {
     ((hasSituation ? 1 : 0) + (hasAction ? 1 : 0) + (hasResult ? 1 : 0)) * (100 / 3),
   )
   const lengthAssessment =
-    seg.words < 40 ? 'too short' : seg.words > 350 ? 'long' : 'good length'
+    seg.words < 40 ? '偏短' : seg.words > 350 ? '偏长' : '时长合适'
   const fillerDensity = seg.words > 0 ? Math.round((seg.fillers / seg.words) * 1000) / 10 : 0
   return { hasSituation, hasAction, hasResult, structureScore, lengthAssessment, fillerDensity }
 }
@@ -97,9 +97,9 @@ export function heuristicAnswerCoaching(seg: AnswerSegment, h: AnswerHeuristics)
   if (!seg.transcript) {
     return '这道题没有拿到文字稿，所以无法给内容层面的建议——上面的表达信号仍然有效。'
   }
-  if (h.lengthAssessment === 'too short') {
+  if (h.lengthAssessment === '偏短') {
     parts.push('这道题答得偏短，建议用 1—2 分钟讲一个具体例子。')
-  } else if (h.lengthAssessment === 'long') {
+  } else if (h.lengthAssessment === '偏长') {
     parts.push('这道题答得偏长，练习把结论先说出来，然后停住。')
   } else {
     parts.push('回答长度合适。')
