@@ -13,7 +13,9 @@
     "prisma:migrate": "prisma migrate dev",
     "start:https": "cross-env PORT=8443 USE_HTTPS=1 node --import tsx src/server.ts",
     "start:prod": "node dist/server.js",
-    "serve": "node --import tsx src/server.ts"
+    "serve": "node --import tsx src/server.ts",
+    "seed:demo": "node scripts/seed-demo.mjs",
+    "seed:demo:clean": "node scripts/seed-demo.mjs --clean"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.1",

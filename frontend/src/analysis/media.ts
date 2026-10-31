@@ -15,8 +15,8 @@ export interface OpenCameraResult {
 
 const FRAME_TIMEOUT = 3000
 
-function buildAttempts(deviceId?: string): MediaStreamConstraints[] {
-  const cam = (video: MediaTrackConstraints): MediaStreamConstraints => ({ video, audio: false })
+function buildAttempts(deviceId?: string, audio = false): MediaStreamConstraints[] {
+  const cam = (video: MediaTrackConstraints): MediaStreamConstraints => ({ video, audio })
   const withDevice = (v: MediaTrackConstraints): MediaTrackConstraints =>
     deviceId ? { ...v, deviceId: { exact: deviceId } } : v
 
@@ -64,10 +64,10 @@ function stopStream(stream: MediaStream) {
 
 export async function openCameraWithCheck(
   video: HTMLVideoElement,
-  opts: { deviceId?: string; timeoutMs?: number } = {},
+  opts: { deviceId?: string; timeoutMs?: number; audio?: boolean } = {},
 ): Promise<OpenCameraResult> {
-  const { deviceId, timeoutMs = FRAME_TIMEOUT } = opts
-  const attempts = buildAttempts(deviceId)
+  const { deviceId, timeoutMs = FRAME_TIMEOUT, audio = false } = opts
+  const attempts = buildAttempts(deviceId, audio)
   const failures: string[] = []
 
   for (let i = 0; i < attempts.length; i++) {

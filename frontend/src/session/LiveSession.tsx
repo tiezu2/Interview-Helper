@@ -5,6 +5,7 @@ import { FaceAnalyzer, type FrameSignals } from '../analysis/faceAnalyzer.js'
 import { PoseAnalyzer } from '../analysis/poseAnalyzer.js'
 import { AudioAnalyzer } from '../analysis/audioAnalyzer.js'
 import { SpeechRecognizer } from '../analysis/speech.js'
+import { getPreferredCameraId, openCameraWithCheck } from '../analysis/media.js'
 import { MetricsAggregator, MetricsSender } from '../analysis/aggregator.js'
 import { NudgeEngine, type Nudge } from '../analysis/nudges.js'
 import { MoodTracker, type MoodResult, classifyMood } from '../analysis/mood.js'
@@ -59,6 +60,7 @@ export default function LiveSession() {
   const [framingMsg, setFramingMsg] = useState<string | null>(null)
   const [meshOn, setMeshOn] = useState(false)
   const [poseOn, setPoseOn] = useState(false)
+  const [cameraLabel, setCameraLabel] = useState('')
   const meshOnRef = useRef(false)
   const framingTracker = useRef(new FramingTracker())
 
@@ -115,15 +117,15 @@ export default function LiveSession() {
   const requestPermissions = async () => {
     setError('')
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480, facingMode: 'user' },
+      // 与眼神/姿态训练一致：多组采集参数回退 + 等首帧，避免绿屏/黑屏卡死
+      const video = videoRef.current
+      if (!video) throw new Error('视频元素未就绪，请刷新页面重试')
+      const { stream, usedLabel } = await openCameraWithCheck(video, {
         audio: true,
+        deviceId: getPreferredCameraId() ?? undefined,
       })
       rt.current.stream = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        await videoRef.current.play()
-      }
+      setCameraLabel(usedLabel)
       setPhase('loading-models')
       const face = new FaceAnalyzer()
       await face.init()
@@ -135,10 +137,11 @@ export default function LiveSession() {
       // T2: denied permission → guidance, session cannot start
       if (!window.isSecureContext) {
         setError('当前页面不是 https 或 localhost，浏览器已禁用摄像头/麦克风。请换用 https 或在本机 localhost 打开。')
-      } else if (err.name === 'NotAllowedError') {
+      } else if (err?.name === 'NotAllowedError') {
         setError('摄像头/麦克风权限被拒绝。请点击地址栏左侧的锁形图标允许访问，然后重试。')
-      } else if (err.name === 'NotFoundError') {
-        setError('没有检测到摄像头或麦克风设备。')
+      } else if (/设备|摄像头|占用|权限|ssl|https/i.test(String(err.message))) {
+        // media.ts 抛出的已是面向用户的中文说明（含多组参数失败原因）
+        setError(String(err.message))
       } else if (/wasm|webassembly|simd|createFromOptions/i.test(String(err.message))) {
         setError(
           '当前浏览器无法运行人脸/姿态模型（需要支持 WebAssembly SIMD）。建议使用 Chrome 87+、Edge 88+、Firefox 78+ 或 Safari 15+。',
@@ -423,6 +426,11 @@ export default function LiveSession() {
               <p>
                 本次共 {questions.length} 道题，逐题进行。请像真实面试一样出声回答，答完点「下一题」。
               </p>
+              {cameraLabel && (
+                <p className="muted" style={{ fontSize: 12, marginTop: -4 }}>
+                  当前采集：{cameraLabel}
+                </p>
+              )}
               {!SpeechRecognizer.supported() && (
                 <p className="muted">
                   当前浏览器不支持实时转写 —— 报告将不含文字稿，其余信号照常工作。

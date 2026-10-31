@@ -17,7 +17,9 @@
     "lan:fast": "node scripts/lan.mjs --skip-build",
     "lan:https": "node scripts/lan.mjs",
     "lan:http:fast": "node scripts/lan.mjs --http --skip-build",
-    "lan:https:fast": "node scripts/lan.mjs --skip-build"
+    "lan:https:fast": "node scripts/lan.mjs --skip-build",
+    "seed:demo": "pnpm --filter backend seed:demo",
+    "seed:demo:clean": "pnpm --filter backend seed:demo:clean"
   },
   "pnpm": {
     "ignoredBuiltDependencies": [
