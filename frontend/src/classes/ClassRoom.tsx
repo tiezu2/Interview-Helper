@@ -109,6 +109,9 @@ export function BoardContent({ classId, embedded = false }: { classId: string; e
   const [busyId, setBusyId] = useState('')
   const [importText, setImportText] = useState('')
   const [importMsg, setImportMsg] = useState('')
+  const [importResult, setImportResult] = useState<{
+    created: Array<{ studentNo: string; name: string; password: string }>
+  } | null>(null)
   const [importing, setImporting] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
 
@@ -246,12 +249,14 @@ export function BoardContent({ classId, embedded = false }: { classId: string; e
               onClick={async () => {
                 setImporting(true)
                 setImportMsg('')
+                setImportResult(null)
                 try {
                   const r = await importStudents(id, importText)
                   setImportMsg(
                     `新建 ${r.summary.created} 人、拉入已有账号 ${r.summary.added} 人、跳过 ${r.summary.skipped} 人` +
-                      (r.summary.created > 0 ? `；初始密码统一为 ${r.defaultPassword}` : ''),
+                      (r.summary.created > 0 ? '；初始密码见下方清单，请逐个告知学生' : ''),
                   )
+                  setImportResult({ created: r.created ?? [] })
                   setImportText('')
                   setReloadKey((k) => k + 1)
                 } catch (e: any) {
@@ -268,8 +273,54 @@ export function BoardContent({ classId, embedded = false }: { classId: string; e
                 {importMsg}
               </p>
             )}
+
+            {importResult && importResult.created.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <div className="table-wrap">
+                  <table className="compact">
+                    <thead>
+                      <tr>
+                        <th style={{ textAlign: 'left' }}>学号</th>
+                        <th style={{ textAlign: 'left' }}>姓名</th>
+                        <th style={{ textAlign: 'left' }}>初始密码</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importResult.created.map((c) => (
+                        <tr key={c.studentNo}>
+                          <td style={{ textAlign: 'left' }}>{c.studentNo}</td>
+                          <td style={{ textAlign: 'left' }}>{c.name}</td>
+                          <td style={{ textAlign: 'left', fontFamily: 'ui-monospace, monospace' }}>
+                            {c.password}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <button
+                  className="secondary"
+                  style={{ marginTop: 8, width: '100%' }}
+                  onClick={() => {
+                    const csv = [['学号', '姓名', '初始密码']]
+                      .concat(importResult.created.map((c) => [c.studentNo, c.name, c.password]))
+                      .map((r) => r.join(','))
+                      .join('\r\n')
+                    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = '学生初始密码清单.csv'
+                    a.click()
+                    URL.revokeObjectURL(url)
+                  }}
+                >
+                  下载密码清单 CSV
+                </button>
+              </div>
+            )}
             <p className="muted" style={{ fontSize: 12, marginTop: 8, marginBottom: 0, lineHeight: 1.6 }}>
-              学号不存在会自动建号（默认密码 12345678），已存在的账号直接拉进班。
+              学号不存在会自动建号（每人一个随机初始密码，导入后见清单），已存在的账号直接拉进班。
             </p>
           </div>
         </div>

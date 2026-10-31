@@ -3,7 +3,6 @@ import { networkInterfaces } from 'node:os'
 import { join, resolve } from 'node:path'
 import { buildApp } from './app.js'
 import { config } from './config.js'
-import { startRetentionJob } from './services/retention/job.js'
 
 // 非 localhost 的 http 页面会被浏览器禁用摄像头/麦克风，
 // 所以局域网访问需要 HTTPS。这里支持用户提供证书，或自动生成自签证书。
@@ -71,8 +70,6 @@ async function resolveHttps() {
 
 const https = await resolveHttps()
 const app = await buildApp({ https })
-
-startRetentionJob()
 
 app
   .listen({ port: config.port, host: '0.0.0.0' })

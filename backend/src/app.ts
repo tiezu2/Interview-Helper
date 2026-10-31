@@ -7,12 +7,9 @@ import websocket from '@fastify/websocket'
 import multipart from '@fastify/multipart'
 import authPlugin from './plugins/auth.js'
 import authRoutes from './routes/auth.js'
-import inviteRoutes from './routes/invites.js'
 import sessionRoutes from './routes/sessions.js'
 import metricsRoutes from './routes/metrics.js'
 import reportRoutes from './routes/reports.js'
-import recordingRoutes from './routes/recordings.js'
-import adminRoutes from './routes/admin.js'
 import progressRoutes from './routes/progress.js'
 import drillRoutes from './routes/drills.js'
 import classRoutes from './routes/classes.js'
@@ -36,12 +33,9 @@ export async function buildApp(opts: BuildAppOptions = {}) {
   await app.register(authPlugin)
 
   await app.register(authRoutes)
-  await app.register(inviteRoutes)
   await app.register(sessionRoutes)
   await app.register(metricsRoutes)
   await app.register(reportRoutes)
-  await app.register(recordingRoutes)
-  await app.register(adminRoutes)
   await app.register(progressRoutes)
   await app.register(drillRoutes)
   await app.register(classRoutes)

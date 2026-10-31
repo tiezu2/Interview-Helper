@@ -14,8 +14,11 @@ export interface SignalScores {
   eyeContact: number
   stillness: number
   voice: number
-  speech: number
+  // 没有可识别的语音时 speech 为 null（不给"刚好 50 分"的假数据）
+  speech: number | null
   overall: number
+  // 哪些维度本次没有数据，前端据此显示"数据不足"而不是编一个分数
+  insufficient: string[]
   details: {
     eyeContactPct: number
     blinkRatePerMin: number
@@ -90,19 +93,29 @@ export function aggregateScores(windows: MetricSignals[], durationSec: number): 
   const voice = clamp(paceScore * 0.6 + pitchScore * 0.4)
 
   // Speech: penalize filler density (5 fillers per 100 words → 50)
-  const speech = totalWords === 0 ? 50 : clamp(100 - fillerPer100Words * 10)
+  // 没有任何识别文本（麦克风没采到语音 / 模型不可用）时不给分，标记为数据不足。
+  const hasSpeech = totalWords > 0
+  const speech = hasSpeech ? clamp(100 - fillerPer100Words * 10) : null
 
-  const overall = clamp(
-    expression * 0.2 + eyeContact * 0.25 + stillness * 0.15 + voice * 0.2 + speech * 0.2,
-  )
+  // 总体分：只按"有数据"的维度加权，权重重新归一，避免用假分拉高/拉低
+  const weighted: Array<[number, number]> = [
+    [expression, 0.2],
+    [eyeContact, 0.25],
+    [stillness, 0.15],
+    [voice, 0.2],
+  ]
+  if (speech !== null) weighted.push([speech, 0.2])
+  const weightSum = weighted.reduce((a, [, w]) => a + w, 0)
+  const overall = clamp(weighted.reduce((a, [v, w]) => a + v * w, 0) / weightSum)
 
   return {
     expression: Math.round(expression),
     eyeContact: Math.round(eyeContact),
     stillness: Math.round(stillness),
     voice: Math.round(voice),
-    speech: Math.round(speech),
+    speech: speech === null ? null : Math.round(speech),
     overall: Math.round(overall),
+    insufficient: hasSpeech ? [] : ['speech'],
     details: {
       eyeContactPct: Math.round(eyeContactPct),
       blinkRatePerMin: Math.round(blinkRatePerMin * 10) / 10,

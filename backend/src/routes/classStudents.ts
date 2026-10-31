@@ -6,6 +6,18 @@ import { prisma } from '../db.js'
 // 老师端：单个学生的详情（报告 + 训练明细）、移除学生、批量导入学生。
 // 隐私边界：老师可看分数、逐题文字与训练指标；不含任何音视频。
 
+// 方便老师口述的密码：大写字母 + 数字，去掉易混淆字符（0/O、1/I）
+function makePassword(len = 8): string {
+  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
+  const digits = '23456789'
+  let out = ''
+  for (let i = 0; i < len; i++) {
+    const pool = i % 2 === 0 ? letters : digits
+    out += pool[Math.floor(Math.random() * pool.length)]
+  }
+  return out
+}
+
 const DEFAULT_PASSWORD = '12345678'
 
 const importSchema = z.object({
@@ -205,8 +217,8 @@ export default async function classStudentRoutes(app: FastifyInstance) {
     const parsed = importSchema.safeParse(req.body)
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.issues[0].message })
 
-    const password = parsed.data.defaultPassword || DEFAULT_PASSWORD
-    const passwordHash = await bcrypt.hash(password, 10)
+    // 每位新学生用独立随机密码（老师可在结果里拿到清单分发）；显式传 defaultPassword 时统一
+    const fixedPassword = parsed.data.defaultPassword ?? null
 
     const lines = parsed.data.text
       .split(/\r?\n/)
@@ -230,9 +242,11 @@ export default async function classStudentRoutes(app: FastifyInstance) {
       // 已有账号？
       let user = await prisma.student.findFirst({ where: { studentNo } })
       let isNew = false
+      let assignedPassword: string | null = null
       if (!user) {
+        assignedPassword = fixedPassword || makePassword()
         user = await prisma.student.create({
-          data: { studentNo, name, passwordHash },
+          data: { studentNo, name, passwordHash: await bcrypt.hash(assignedPassword, 10) },
         })
         isNew = true
       }
@@ -246,13 +260,14 @@ export default async function classStudentRoutes(app: FastifyInstance) {
       }
 
       await prisma.classMembership.create({ data: { classroomId: id, studentId: user.id } })
-      if (isNew) created.push({ studentNo, name, password })
+      if (isNew && assignedPassword) created.push({ studentNo, name, password: assignedPassword })
       else added.push({ studentNo, name: user.name })
     }
 
     return {
       ok: true,
-      defaultPassword: password,
+      // 显式指定的统一密码（没指定就是 null，各账号密码见 created[].password）
+      defaultPassword: fixedPassword,
       summary: { created: created.length, added: added.length, skipped: skipped.length },
       created,
       added,

@@ -30,16 +30,21 @@ const BAND_TEXT: Record<'strong' | 'okay' | 'weak', string> = {
 }
 
 export function templateCoaching(scores: SignalScores): string {
-  const rows = [
+  // 没有数据的维度（如本次没有语音）不参与好坏评价，只做说明
+  const rows: Array<[string, number]> = [
     ['表情与从容度', scores.expression],
     ['眼神接触', scores.eyeContact],
     ['身体稳定度（少小动作）', scores.stillness],
     ['声音表现', scores.voice],
-    ['语言表达（少口头禅）', scores.speech],
-  ] as const
+  ]
+  if (scores.speech !== null) rows.push(['语言表达（少口头禅）', scores.speech])
 
   const strengths = rows.filter(([, s]) => band(s) === 'strong')
   const improve = rows.filter(([, s]) => band(s) !== 'strong')
+  const missing =
+    scores.speech === null
+      ? '\n> 本次没有采集到可识别的语音，语言表达（口头禅）暂不计分，建议检查麦克风后重练一次。\n'
+      : ''
 
   return [
     '## 做得好的地方',
@@ -47,6 +52,7 @@ export function templateCoaching(scores: SignalScores): string {
       ? strengths.map(([n, s]) => `- **${n}**（${s} 分）——${BAND_TEXT.strong}。`).join('\n')
       : '- 你完整走完了一次模拟面试，这本身就是可以继续累积的起点。',
     '',
+    missing,
     '## 可以改进的地方',
     improve.length
       ? improve.map(([n, s]) => `- **${n}**（${s} 分）——${BAND_TEXT[band(s)]}。`).join('\n')

@@ -28,8 +28,9 @@ interface ReportData {
       eyeContact: number
       stillness: number
       voice: number
-      speech: number
+      speech: number | null
       overall: number
+      insufficient?: string[]
       answers?: AnswerData[]
       details: {
         eyeContactPct: number
@@ -68,10 +69,114 @@ function renderMd(md: string) {
   return { __html: html }
 }
 
-function scoreColor(v: number) {
+function scoreColor(v: number | null) {
+  if (v === null || v === undefined) return 'var(--muted)'
   if (v >= 75) return 'var(--good)'
   if (v >= 50) return 'var(--warn)'
   return 'var(--bad)'
+}
+
+
+// ---------- 成绩卡导出（纯 Canvas，不引第三方库） ----------
+function exportReportCard(opts: {
+  roleField: string
+  overall: number
+  dims: Array<[string, number | null]>
+  details: any
+  date: string
+}) {
+  const W = 1080
+  const H = 1440
+  const canvas = document.createElement('canvas')
+  canvas.width = W
+  canvas.height = H
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  // 背景
+  ctx.fillStyle = '#f5f7fb'
+  ctx.fillRect(0, 0, W, H)
+  // 顶部蓝条
+  const grad = ctx.createLinearGradient(0, 0, W, 220)
+  grad.addColorStop(0, '#1a49ff')
+  grad.addColorStop(1, '#4d8bff')
+  ctx.fillStyle = grad
+  ctx.fillRect(0, 0, W, 220)
+
+  ctx.fillStyle = '#ffffff'
+  ctx.font = '600 44px "Microsoft YaHei", -apple-system, sans-serif'
+  ctx.fillText('面试表达训练成绩卡', 72, 108)
+  ctx.font = '400 26px "Microsoft YaHei", sans-serif'
+  ctx.fillStyle = 'rgba(255,255,255,0.85)'
+  ctx.fillText(`岗位方向：${opts.roleField}     ${opts.date}`, 72, 160)
+
+  // 综合分大数字
+  ctx.fillStyle = '#111a3f'
+  ctx.font = '600 180px "Microsoft YaHei", sans-serif'
+  ctx.fillText(String(Math.round(opts.overall)), 72, 420)
+  ctx.font = '400 32px "Microsoft YaHei", sans-serif'
+  ctx.fillStyle = '#86909c'
+  ctx.fillText('综合表现 / 100', 72, 470)
+
+  // 五维条形
+  const colors = ['#3ecf8e', '#4f8cff', '#f5b942', '#b07cff', '#f2735b']
+  let y = 580
+  opts.dims.forEach(([name, v], i) => {
+    ctx.fillStyle = '#1f2329'
+    ctx.font = '500 30px "Microsoft YaHei", sans-serif'
+    ctx.fillText(name, 72, y)
+
+    const barX = 300
+    const barW = 600
+    const barH = 22
+    ctx.fillStyle = '#e8ecf5'
+    ctx.beginPath()
+    ctx.roundRect(barX, y - 20, barW, barH, 11)
+    ctx.fill()
+
+    if (v !== null) {
+      ctx.fillStyle = colors[i % colors.length]
+      ctx.beginPath()
+      ctx.roundRect(barX, y - 20, Math.max(6, (barW * Math.min(100, v)) / 100), barH, 11)
+      ctx.fill()
+    }
+
+    ctx.fillStyle = v === null ? '#f5a623' : '#1f2329'
+    ctx.font = '600 32px "Microsoft YaHei", sans-serif'
+    ctx.fillText(v === null ? '数据不足' : String(v), barX + barW + 28, y)
+    y += 92
+  })
+
+  // 关键数据
+  const d = opts.details ?? {}
+  ctx.fillStyle = '#1f2329'
+  ctx.font = '500 30px "Microsoft YaHei", sans-serif'
+  ctx.fillText('关键数据', 72, y + 30)
+  ctx.font = '400 26px "Microsoft YaHei", sans-serif'
+  ctx.fillStyle = '#4e5969'
+  const rows = [
+    `眼神接触 ${d.eyeContactPct ?? '—'}%    眨眼 ${d.blinkRatePerMin ?? '—'} 次/分`,
+    `语速 ${d.avgWpm ?? '—'} 字/分    口头禅 ${d.fillerCount ?? '—'} 次`,
+    `姿态端正度 ${d.avgPosture ?? '—'}`,
+  ]
+  rows.forEach((line, i) => ctx.fillText(line, 72, y + 92 + i * 48))
+
+  // 页脚
+  ctx.fillStyle = '#86909c'
+  ctx.font = '400 22px "Microsoft YaHei", sans-serif'
+  ctx.fillText('本卡片为表达训练反馈，不构成任何录用判断。', 72, H - 96)
+  ctx.fillText('大连东软信息学院 · 学生表达训练平台', 72, H - 56)
+
+  // 下载
+  canvas.toBlob((blob) => {
+    if (!blob) return
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `成绩卡-${opts.roleField}-${opts.date.replace(/[^\d]/g, '')}.png`
+    a.click()
+    URL.revokeObjectURL(url)
+  }, 'image/png')
 }
 
 export default function ReportPage() {
@@ -110,6 +215,28 @@ export default function ReportPage() {
         <p className="muted">
           这份报告只看表达层面的信号，帮你练得更稳；它是训练反馈，不是对你的评价。
         </p>
+        <div style={{ marginBottom: 16 }}>
+          <button
+            className="secondary"
+            onClick={() =>
+              exportReportCard({
+                roleField: data.roleField,
+                overall: s.overall,
+                dims: [
+                  ['表情从容', s.expression],
+                  ['眼神接触', s.eyeContact],
+                  ['身体稳定', s.stillness],
+                  ['声音表现', s.voice],
+                  ['语言表达', s.speech],
+                ],
+                details: s.details,
+                date: new Date().toLocaleDateString('zh-CN'),
+              })
+            }
+          >
+            导出成绩卡 PNG
+          </button>
+        </div>
         <div className="score-grid">
           <div className="score-tile" style={{ gridColumn: '1 / -1' }}>
             <div className="value" style={{ color: scoreColor(s.overall) }}>
@@ -133,13 +260,24 @@ export default function ReportPage() {
           ).map(([name, v, pct]) => (
             <div className="score-tile" key={name}>
               <div className="value" style={{ color: scoreColor(v) }}>
-                {v}
+                {v ?? '—'}
               </div>
               <div className="name">{name}</div>
-              {pct !== undefined && <div className="benchmark">前 {100 - pct}%</div>}
+              {v === null ? (
+                <div className="benchmark" style={{ color: 'var(--warn)' }}>
+                  数据不足
+                </div>
+              ) : (
+                pct !== undefined && <div className="benchmark">前 {100 - pct}%</div>
+              )}
             </div>
           ))}
         </div>
+        {s.insufficient && s.insufficient.length > 0 && (
+          <p className="muted" style={{ fontSize: 12, marginBottom: 0 }}>
+            本次没有采集到可识别的语音，「语言表达」不计分（综合分按其余维度计算）。
+          </p>
+        )}
         {benchmarks && (
           <p className="muted" style={{ fontSize: 12, marginBottom: 0 }}>
             百分位对比的是平台上另外 {benchmarks.sampleSize} 次练习 —— 只作参照，不是排名。
@@ -153,23 +291,23 @@ export default function ReportPage() {
           <tbody>
             <tr>
               <td>眼神接触</td>
-              <td>{s.details.eyeContactPct}% of the session</td>
+              <td>{s.details.eyeContactPct}%（占整场时间）</td>
             </tr>
             <tr>
               <td>语速</td>
-              <td>{s.details.avgWpm} words/min (ideal 120–150)</td>
+              <td>{s.details.avgWpm} 字/分（建议 120—150）</td>
             </tr>
             <tr>
               <td>口头禅</td>
               <td>
-                {s.details.fillerCount} total ({s.details.fillerPer100Words} per 100 words)
+                {s.details.fillerCount} 次（每 100 字 {s.details.fillerPer100Words} 次）
               </td>
             </tr>
             <tr>
               <td>声音表现力</td>
               <td>
                 {s.details.energy}/100{' '}
-                {s.details.energy < 25 ? '(monotone — vary pitch and volume)' : s.details.energy < 55 ? '(steady)' : '(expressive)'}
+                {s.details.energy < 25 ? '（语调偏平，建议增加起伏）' : s.details.energy < 55 ? '（语调稳定）' : '（有起伏，表现力好）'}
               </td>
             </tr>
             {s.details.avgPosture !== null && (
@@ -177,13 +315,13 @@ export default function ReportPage() {
                 <td>姿态</td>
                 <td>
                   {Math.round(s.details.avgPosture * 100)}/100{' '}
-                  {s.details.avgPosture >= 0.66 ? '(upright)' : s.details.avgPosture >= 0.4 ? '(okay)' : '(slouched)'}
+                  {s.details.avgPosture >= 0.66 ? '（坐姿端正）' : s.details.avgPosture >= 0.4 ? '（基本正常）' : '（偏含胸/歪斜）'}
                 </td>
               </tr>
             )}
             <tr>
               <td>眨眼频率</td>
-              <td>{s.details.blinkRatePerMin}/min</td>
+              <td>{s.details.blinkRatePerMin} 次/分</td>
             </tr>
           </tbody>
         </table>
@@ -206,7 +344,7 @@ export default function ReportPage() {
             ))}
           </div>
           <p className="muted" style={{ fontSize: 12, marginBottom: 0 }}>
-            Emoji = how you mostly came across during that answer; % = average nervousness.
+            条形下方的百分比是该题的平均紧张度（越低越放松）。
           </p>
         </div>
       )}

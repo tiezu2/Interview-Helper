@@ -18,6 +18,34 @@ const registerSchema = z.object({
   email: z.string().email().optional().or(z.literal('')),
 })
 
+// 简单的登录失败限流：同一 key（账号+IP）5 分钟内失败 5 次则锁定 5 分钟
+const MAX_FAILS = 5
+const WINDOW_MS = 5 * 60 * 1000
+const failBuckets = new Map<string, { count: number; firstAt: number }>()
+
+function tooManyAttempts(key: string): boolean {
+  const b = failBuckets.get(key)
+  if (!b) return false
+  if (Date.now() - b.firstAt > WINDOW_MS) {
+    failBuckets.delete(key)
+    return false
+  }
+  return b.count >= MAX_FAILS
+}
+
+function recordFailure(key: string) {
+  const b = failBuckets.get(key)
+  if (!b || Date.now() - b.firstAt > WINDOW_MS) {
+    failBuckets.set(key, { count: 1, firstAt: Date.now() })
+  } else {
+    b.count += 1
+  }
+}
+
+function clearFailures(key: string) {
+  failBuckets.delete(key)
+}
+
 const loginSchema = z.object({
   account: z.string().min(1, '请填写学号/工号'),
   password: z.string(),
@@ -85,7 +113,15 @@ export default async function authRoutes(app: FastifyInstance) {
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.issues[0].message })
     const { account, password, role } = parsed.data
 
-    const bad = () => reply.code(401).send({ error: '学号/工号或密码不正确' })
+    const rateKey = `${account}|${req.ip ?? '-'}`
+    if (tooManyAttempts(rateKey)) {
+      return reply.code(429).send({ error: '尝试次数过多，请 5 分钟后再试' })
+    }
+
+    const bad = () => {
+      recordFailure(rateKey)
+      return reply.code(401).send({ error: '学号/工号或密码不正确' })
+    }
 
     // 未指定身份时：先查学生，再查老师；指定了身份就只查对应表
     if (role !== 'teacher') {
@@ -93,6 +129,7 @@ export default async function authRoutes(app: FastifyInstance) {
         where: { OR: [{ studentNo: account }, { email: account }] },
       })
       if (s && (await bcrypt.compare(password, s.passwordHash))) {
+        clearFailures(rateKey)
         const token = app.jwt.sign({ id: s.id, role: 'student', email: account })
         return { token, user: dto({ ...s, account: s.studentNo }, 'student') }
       }
@@ -103,6 +140,7 @@ export default async function authRoutes(app: FastifyInstance) {
       where: { OR: [{ employeeNo: account }, { email: account }] },
     })
     if (t && (await bcrypt.compare(password, t.passwordHash))) {
+      clearFailures(rateKey)
       const token = app.jwt.sign({ id: t.id, role: 'teacher', email: account })
       return { token, user: dto({ ...t, account: t.employeeNo }, 'teacher') }
     }

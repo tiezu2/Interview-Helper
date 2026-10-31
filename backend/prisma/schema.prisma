@@ -24,8 +24,6 @@ model Teacher {
   name         String
   createdAt    DateTime    @default(now())
   classes      Classroom[] @relation("TeacherClasses")
-  invites      Invite[]    @relation("AssessorInvites")
-  assessed     Session[]   @relation("AssessorSessions")
 }
 
 // 学生：用「学号」登录，做模拟面试与专项训练，可加入老师的班级。
@@ -79,24 +77,11 @@ model DrillRun {
   @@index([userId, kind, createdAt])
 }
 
-// 历史遗留（邀请制），当前产品未使用，保留表结构避免迁移风险。
-model Invite {
-  id         String    @id @default(cuid())
-  assessorId String
-  assessor   Teacher   @relation("AssessorInvites", fields: [assessorId], references: [id])
-  code       String    @unique
-  email      String?
-  expiresAt  DateTime
-  usedAt     DateTime?
-  createdAt  DateTime  @default(now())
-}
-
 model Session {
   id            String         @id @default(cuid())
   candidateId   String // 学生 id
   candidate     Student        @relation("CandidateSessions", fields: [candidateId], references: [id])
   assessorId    String? // 历史字段，当前未使用
-  assessor      Teacher?       @relation("AssessorSessions", fields: [assessorId], references: [id])
   roleField     String
   status        String         @default("created") // created | active | ended | reported
   consentAt     DateTime?
@@ -106,7 +91,6 @@ model Session {
   questions     Question[]
   metricWindows MetricWindow[]
   report        Report?
-  recording     Recording?
 }
 
 model Question {
@@ -138,12 +122,3 @@ model Report {
   createdAt  DateTime @default(now())
 }
 
-model Recording {
-  id         String    @id @default(cuid())
-  sessionId  String    @unique
-  session    Session   @relation(fields: [sessionId], references: [id])
-  objectKey  String
-  size       Int       @default(0)
-  expiresAt  DateTime
-  uploadedAt DateTime?
-}
