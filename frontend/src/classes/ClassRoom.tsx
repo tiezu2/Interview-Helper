@@ -130,14 +130,14 @@ export function BoardContent({ classId, embedded = false }: { classId: string; e
     return { bad, warn }
   }, [data])
 
-  if (error) return <div className="container error">{error}</div>
-  if (!data) return <div className="container muted">正在加载班级看板…</div>
+  if (error) return <div className={embedded ? 'error' : 'container error'}>{error}</div>
+  if (!data) return <div className={embedded ? 'muted' : 'container muted'}>正在加载班级看板…</div>
 
   const { classroom, students, stats } = data
   const needAttention = alerts.bad.length + alerts.warn.length
 
   return (
-    <div className="container">
+    <div className={embedded ? 'board-embedded' : 'container'}>
       <div
         className={embedded ? 'page-actions' : 'page-head'}
         style={embedded ? { justifyContent: 'flex-end', marginBottom: 12 } : undefined}
@@ -308,9 +308,6 @@ export function BoardContent({ classId, embedded = false }: { classId: string; e
                       <th style={{ textAlign: 'left' }}>学员</th>
                       <th>状态</th>
                       <th>最近综合</th>
-                      {DIMS.map((k) => (
-                        <th key={k}>{DIM_SHORT[k]}</th>
-                      ))}
                       <th>均分</th>
                       <th>最好</th>
                       <th>练习</th>
@@ -347,14 +344,7 @@ export function BoardContent({ classId, embedded = false }: { classId: string; e
                               {s.latest?.overall ?? '—'}
                             </span>
                           </td>
-                          {DIMS.map((k) => {
-                            const v = (s.latest as any)?.[k] ?? null
-                            return (
-                              <td key={k} style={{ color: scoreColor(v) }}>
-                                {v ?? '—'}
-                              </td>
-                            )
-                          })}
+
                           <td>{s.avgOverall ?? '—'}</td>
                           <td>{s.bestOverall ?? '—'}</td>
                           <td>{s.sessionCount}</td>

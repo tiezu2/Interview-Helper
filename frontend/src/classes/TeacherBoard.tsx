@@ -44,8 +44,8 @@ export default function TeacherBoard() {
   }
 
   return (
-    <div>
-      <div className="container" style={{ paddingBottom: 0 }}>
+    <div className="container">
+      <div>
         <div className="page-head" style={{ marginBottom: 8 }}>
           <div>
             <h2>班级看板</h2>
@@ -80,9 +80,10 @@ export default function TeacherBoard() {
           </div>
         )}
       </div>
+      <div style={{ height: 12 }} />
 
       {/* 复用同一套看板 */}
-      {selectedId && <BoardContent key={selectedId} classId={selectedId} />}
+      {selectedId && <BoardContent key={selectedId} classId={selectedId} embedded />}
     </div>
   )
 }

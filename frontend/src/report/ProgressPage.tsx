@@ -22,10 +22,10 @@ interface ProgressData {
 }
 
 const SERIES = [
-  { key: 'overall', label: 'Overall', color: '#4f8cff', width: 3 },
-  { key: 'eyeContact', label: 'Eye contact', color: '#3ecf8e', width: 1.5 },
-  { key: 'voice', label: 'Voice', color: '#f5b942', width: 1.5 },
-  { key: 'speech', label: 'Speech', color: '#b07cff', width: 1.5 },
+  { key: 'overall', label: '综合', color: '#4f8cff', width: 3 },
+  { key: 'eyeContact', label: '眼神', color: '#3ecf8e', width: 1.5 },
+  { key: 'voice', label: '声音', color: '#f5b942', width: 1.5 },
+  { key: 'speech', label: '表达', color: '#b07cff', width: 1.5 },
 ] as const
 
 export default function ProgressPage() {

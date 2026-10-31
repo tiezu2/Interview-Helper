@@ -255,7 +255,8 @@ async function main() {
   for (let i = 0; i < 5; i++) {
     await createSession(students[0].id, {
       level: 72 + i * 4,
-      daysAgo: (5 - i) * 3,
+      // 连续 5 天练习，便于「连续天数」指标正确显示
+      daysAgo: 5 - i,
       roleField: '软件开发工程师',
     })
   }
@@ -265,7 +266,7 @@ async function main() {
   for (let i = 0; i < 3; i++) {
     await createSession(students[1].id, {
       level: 60 + i * 4,
-      daysAgo: (3 - i) * 4,
+      daysAgo: 3 - i,
       roleField: '软件测试工程师',
     })
   }

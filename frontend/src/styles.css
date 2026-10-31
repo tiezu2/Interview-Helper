@@ -2619,3 +2619,83 @@ body {
   font-size: 12px;
   color: var(--muted);
 }
+
+/* ============================================================
+   布局收紧：让页面「满」起来（减少左右留白、卡片撑满高度）
+   ============================================================ */
+
+/* 内容区更宽：1040 → 1200，页面左右空白变少 */
+.container {
+  max-width: 1200px;
+  padding: 18px 20px 32px;
+}
+
+.container.mid {
+  max-width: 900px;
+}
+
+.container.narrow {
+  max-width: 560px;
+}
+
+/* 三栏更宽更均衡 */
+.dash {
+  /* 侧栏收窄、主栏加宽：班级看板 9 列表格不再横向溢出 */
+  grid-template-columns: 280px minmax(0, 1fr) 300px;
+  gap: 14px;
+  align-items: stretch;   /* 让同排卡片等高，避免右侧空白 */
+}
+
+.dash > div {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* 组件库自有间距：卡片之间不再靠 margin 堆叠 */
+.dash > div > * {
+  margin-bottom: 0 !important;
+}
+
+/* 卡片内边距略紧，内容更满 */
+.card {
+  padding: 18px 20px;
+}
+
+/* 铺满一屏交给 #root，避免嵌套 .container 被重复撑高 */
+#root {
+  min-height: 100vh;
+}
+
+/* 表格行高略增，行数少时不会显得空 */
+.table-wrap table.compact td {
+  padding: 11px 8px;
+}
+
+/* 空状态居中，避免大片留白 */
+.empty-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* 嵌入模式（/teacher/board 内的看板）不需要再次左右留白 */
+.board-embedded {
+  padding: 0;
+}
+
+/* 看板页顶部条：与内容同宽 */
+.board-head-wrap {
+  padding: 0;
+}
+
+/* 班级看板（中栏 8 列）再收紧一点，避免出现横向滚动条 */
+.dash-main .card .table-wrap table.compact th,
+.dash-main .card .table-wrap table.compact td {
+  padding: 9px 5px;
+}
